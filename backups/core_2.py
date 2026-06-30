@@ -666,7 +666,14 @@ def run_simulation(current_time, building, students, schedule, step_minutes):
             # --------------------------------------------------
             # STEP 7: Move to the next room when travel time has elapsed
             # --------------------------------------------------
+            # Current room occupancy
+            occupancy_counts = {}
 
+            for s in students:
+                room_id = s.current_room.room_id
+                occupancy_counts[room_id] = (
+                    occupancy_counts.get(room_id, 0) + 1
+                )
             if student.current_room.room_id in student.path:
 
                 current_index = student.path.index(student.current_room.room_id)
@@ -817,7 +824,7 @@ if __name__ == "__main__":
 
     occupancy_series, students = run_occupancy_time_series(
         start_time="05:00",
-        end_time="22:00",
+        end_time="09:00",
         step_minutes=5
     )
 

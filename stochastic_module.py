@@ -10,7 +10,7 @@ def bathroom_duration():
 
 
 def walking_speed():
-    speed = random.normalvariate(0.6, 0.2)
+    speed = random.normalvariate(0.5, 0.2)
     return round(max(speed, 0.5), 2)
 
 
@@ -42,11 +42,8 @@ def dorm_return_offset():
     return round(random.triangular(-5, 0, 10))
 
 
-def morning_leave_time(student):
-    return (
-        student.preparation_finish_time
-        + student.leave_time_offset
-    )
+def morning_leave_offset():
+    return random.randint(0, 15)
 
 
 #AFTERNOON ACTIVITIES

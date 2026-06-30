@@ -13,7 +13,7 @@ from stochastic_module import walking_speed
 from stochastic_module import morning_study_decision
 from stochastic_module import choose_afternoon_activity
 from stochastic_module import choose_evening_activity
-from stochastic_module import morning_leave_time
+from stochastic_module import morning_leave_offset
 
 # -------------------------
 # MOVEMENT HELPER FUNCTIONS
@@ -141,71 +141,96 @@ def get_all_room_ids():
     return list(building.rooms.keys())
 
 
-def run_occupancy_time_series(start_time, end_time, step_minutes):
+def run_occupancy_time_series(start_time, end_time, simulation_step=1, reporting_step=5):
 
     building, students, schedule = initialize_simulation()
 
-    time_steps = generate_time_steps(start_time, end_time, step_minutes)
+    time_steps = generate_time_steps(
+        start_time,
+        end_time,
+        simulation_step
+    )
 
     all_room_ids = get_all_room_ids()
-
     occupancy_series = []
     debug_rows = []
 
     for time in time_steps:
-        results = run_simulation(time, building, students, schedule, step_minutes)
+
+        results = run_simulation(
+            time,
+            building,
+            students,
+            schedule,
+            simulation_step
+        )
+
+        current_minutes = time_to_minutes(time)
+
+        if current_minutes % reporting_step == 0:
+
+            occupancy_counts = count_room_occupancy(results)
+
+            row = {"time": time}
+
+            for room_id in all_room_ids:
+                row[room_id] = occupancy_counts.get(room_id, 0)
+
+            occupancy_series.append(row)
+
+    return occupancy_series, students
         
         # -------------------------
         # STUDENTS NOT OUT BY 8:00
         # -------------------------
-        """
-        if time == "08:00":
-            print("\nNOT OUTSIDE AT 08:00")
+    """
+    if time == "08:00":
+        print("\nNOT OUTSIDE AT 08:00")
 
-            for student in students:
-                if student.current_room.room_id != "OUTSIDE":
-                    print(
-                        student.agent_id,
-                        student.current_room.room_id,
-                        "leave:",
-                        minutes_to_time(student.leave_dorm_time),
-                        "outside:",
-                        minutes_to_time(student.arrive_outside_time),
-                        "path:",
-                        " -> ".join(student.path)
-                    )
-"""
+        for student in students:
+            if student.current_room.room_id != "OUTSIDE":
+                print(
+                    student.agent_id,
+                    student.current_room.room_id,
+                    "leave:",
+                    minutes_to_time(student.leave_dorm_time),
+                    "outside:",
+                    minutes_to_time(student.arrive_outside_time),
+                    "path:",
+                    " -> ".join(student.path)
+                )
+                """
         # collect per-student debug info from results
-        for res in results:
-            debug_rows.append(
-                {
-                    "time": time,
-                    "student_id": res.get("id"),
-                    "activity": res.get("activity"),
-                    "current_room": res.get("current_room"),
-                    "destination": res.get("destination"),
-                    "bath_done": res.get("bath_done"),
-                    "returned_to_dorm": res.get("returned_to_dorm"),
-                    "prep_start": minutes_to_time(res.get("prep_start")),
-                    "prep_finish": minutes_to_time(res.get("prep_finish")),
-                    "bathroom_start_time": res.get("bathroom_start_time"),
-                    "bathroom_finish_time": res.get("bathroom_finish_time"),
-                    "return_dorm_time": res.get("return_dorm_time"),
-                    "leave_dorm_time": res.get("leave_dorm_time"),
-                    "arrive_outside_time": res.get("arrive_outside_time"),
-                }
-            )
+    for res in results:
+        debug_rows.append(
+            {
+                "time": time,
+                "student_id": res.get("id"),
+                "activity": res.get("activity"),
+                "current_room": res.get("current_room"),
+                "destination": res.get("destination"),
+                "bath_done": res.get("bath_done"),
+                "returned_to_dorm": res.get("returned_to_dorm"),
+                "prep_start": minutes_to_time(res.get("prep_start")),
+                "prep_finish": minutes_to_time(res.get("prep_finish")),
+                "bathroom_start_time": res.get("bathroom_start_time"),
+                "bathroom_finish_time": res.get("bathroom_finish_time"),
+                "return_dorm_time": res.get("return_dorm_time"),
+                "leave_dorm_time": res.get("leave_dorm_time"),
+                "arrive_outside_time": res.get("arrive_outside_time"),
+            }
+        )
 
-        occupancy_counts = count_room_occupancy(results)
+    occupancy_counts = count_room_occupancy(results)
 
-        row = {"time": time}
+    row = {"time": time}
 
-        for room_id in all_room_ids:
-            row[room_id] = occupancy_counts.get(room_id, 0)
+    for room_id in all_room_ids:
+        row[room_id] = occupancy_counts.get(room_id, 0)
 
-        occupancy_series.append(row)
+    occupancy_series.append(row)
 
-        EXPORT_DEBUG_CSV = False
+    EXPORT_DEBUG_CSV = False
 
     # write debug CSV after the simulation loop
     csv_filename = "student_debug_output.csv"
@@ -663,70 +688,64 @@ def run_simulation(current_time, building, students, schedule, step_minutes):
 
                 student.path = path
 
-            # -------------------------
-            # STEP 7: Move along path within current timestep
-            # -------------------------
-            
+            # --------------------------------------------------
+            # STEP 7: Move to the next room when travel time has elapsed
+            # --------------------------------------------------
+            # Current room occupancy
             occupancy_counts = {}
 
             for s in students:
                 room_id = s.current_room.room_id
-                occupancy_counts[room_id] = occupancy_counts.get(room_id, 0) + 1
-
-            movement_budget = step_minutes
-
-            while (
-                student.current_room.room_id in student.path
-                and movement_budget > 0
-            ):
+                occupancy_counts[room_id] = (
+                    occupancy_counts.get(room_id, 0) + 1
+                )
+            if student.current_room.room_id in student.path:
 
                 current_index = student.path.index(student.current_room.room_id)
 
-                if current_index >= len(student.path) - 1:
-                    break
+                if current_index < len(student.path) - 1:
 
-                current_room_id = student.current_room.room_id
-                next_room_id = student.path[current_index + 1]
+                    current_room_id = student.current_room.room_id
+                    next_room_id = student.path[current_index + 1]
 
-                distance_m = building.get_connection_distance(
-                    current_room_id,
-                    next_room_id
-                )
+                    if student.next_move_time is None:
+                        student.next_move_time = current_time_minutes
 
-                travel_minutes = distance_m / student.walking_speed / 60
+                    if current_time_minutes >= student.next_move_time:
 
-                if travel_minutes > movement_budget:
-                    break
-                
-                if student.agent_id == "S025":
+                        if can_enter_room(next_room_id, building, occupancy_counts):
 
-                    print(
-                        current_time,
-                        student.current_room.room_id,
-                        "->",
-                        next_room_id,
-                        occupancy_counts.get(next_room_id, 0),
-                        building.rooms[next_room_id].capacity
-                    )
-    
-                if can_enter_room(next_room_id, building, occupancy_counts):
+                            occupancy_counts[current_room_id] = max(
+                                occupancy_counts.get(current_room_id, 0) - 1,
+                                0
+                            )
 
-                    occupancy_counts[current_room_id] = max(
-                        occupancy_counts.get(current_room_id, 0) - 1,
-                        0
-                    )
+                            occupancy_counts[next_room_id] = (
+                                occupancy_counts.get(next_room_id, 0) + 1
+                            )
 
-                    occupancy_counts[next_room_id] = (
-                        occupancy_counts.get(next_room_id, 0) + 1
-                    )
+                            student.current_room = building.rooms[next_room_id]
 
-                    student.current_room = building.rooms[next_room_id]
-                    movement_budget -= travel_minutes
-                    student.state = "moving"
-                    break
-                else:
-                    student.state = "queued"
-                    break
+                            distance_m = building.get_connection_distance(
+                                current_room_id,
+                                next_room_id
+                            )
+
+                            travel_minutes = (
+                                distance_m /
+                                student.walking_speed /
+                                60
+                            )
+
+                            student.next_move_time = (
+                                current_time_minutes +
+                                travel_minutes
+                            )
+
+                            student.state = "moving"
+
+                        else:
+                            student.state = "queued"
                     
 
 
@@ -829,10 +848,11 @@ def export_occupancy_to_csv(occupancy_series, filename):
 if __name__ == "__main__":
 
     occupancy_series, students = run_occupancy_time_series(
-        start_time="05:00",
-        end_time="22:00",
-        step_minutes=5
-    )
+    start_time="05:00",
+    end_time="09:00",
+    simulation_step=1,
+    reporting_step=5
+)
 
     # -------------------------
     # OCCUPANCY TABLE

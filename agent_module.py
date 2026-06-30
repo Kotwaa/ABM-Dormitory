@@ -7,6 +7,7 @@ from stochastic_module import morning_departure_offset
 from stochastic_module import afternoon_departure_offset
 from stochastic_module import dorm_return_offset
 from stochastic_module import morning_study_decision
+from stochastic_module import morning_leave_offset
 # ==========================================================
 # SECTION 1 - AGENT CLASS
 # ==========================================================
@@ -28,7 +29,7 @@ class Agent:
         # Departure offsets
         self.morning_departure_offset = morning_departure_offset()
         self.afternoon_departure_offset = afternoon_departure_offset()
-        self.leave_time_offset = 0
+        self.leave_time_offset = morning_leave_offset()
 
         # Arrival offsets
         self.afternoon_arrival_offset = dorm_return_offset()
