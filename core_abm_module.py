@@ -748,7 +748,22 @@ def run_simulation(current_time, building, students, schedule, step_minutes):
                             student.state = "queued"
                     
 
+            # --------------------------------------------------
+            # DEBUG: Trace one student
+            # --------------------------------------------------
+            if student.agent_id == "S031":
 
+                print(
+                    current_time,
+                    "| room:",
+                    student.current_room.room_id,
+                    "| destination:",
+                    student.destination_room,
+                    "| next_move_time:",
+                    round(student.next_move_time, 2) if student.next_move_time is not None else None,
+                    "| path:",
+                    " -> ".join(student.path) if student.path else None
+    )
             # --------------------------------------------------
             # STEP 8: Record current room after movement
             # --------------------------------------------------
