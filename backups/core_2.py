@@ -655,13 +655,22 @@ def run_simulation(current_time, building, students, schedule, step_minutes):
             if not student.path or student.path[-1] != student.destination_room:
 
                 path = find_path(
-                    building, student.current_room.room_id, student.destination_room
+                    building,
+                    student.current_room.room_id,
+                    student.destination_room
                 )
 
                 if path is None:
-                    path = [student.current_room.room_id]
-
-                student.path = path
+                    print(
+                        "NO PATH:",
+                        student.agent_id,
+                        student.current_room.room_id,
+                        "->",
+                        student.destination_room
+                    )
+                    student.path = [student.current_room.room_id]
+                else:
+                    student.path = path
 
             # --------------------------------------------------
             # STEP 7: Move to the next room when travel time has elapsed

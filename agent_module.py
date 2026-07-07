@@ -1,6 +1,8 @@
 # agents.py
 
 # This module defines 1. Agent class, 2. Agent movement functions, 3. Agent creation functions, and 4. Occupancy calculation functions.
+import random
+
 from stochastic_module import wake_up_time
 from stochastic_module import walking_speed
 from stochastic_module import morning_departure_offset
@@ -8,45 +10,90 @@ from stochastic_module import afternoon_departure_offset
 from stochastic_module import dorm_return_offset
 from stochastic_module import morning_study_decision
 from stochastic_module import morning_leave_offset
+from stochastic_module import bathroom_duration
+from stochastic_module import preparation_duration
 # ==========================================================
 # SECTION 1 - AGENT CLASS
 # ==========================================================
 class Agent:
     def __init__(self, agent_id, agent_type, current_room):
+
+        # -------------------------
+        # BASIC INFORMATION
+        # -------------------------
         self.agent_id = agent_id
         self.agent_type = agent_type
 
-        # Room information
+        # -------------------------
+        # ROOM INFORMATION
+        # -------------------------
         self.assigned_room = current_room
         self.current_room = current_room
-        self.destination_room = current_room.room_id
+        self.destination_room = current_room
+        self.current_destination = None
         self.path = []
 
-        # State information
+        # -------------------------
+        # STATE INFORMATION
+        # -------------------------
         self.state = "idle"
         self.current_activity = None
+        self.is_travelling = False
 
-        # Departure offsets
-        self.morning_departure_offset = morning_departure_offset()
+        # -------------------------
+        # BEHAVIORAL PROFILES
+        # -------------------------
+        self.wake_up_profile = random.choices(
+            ["early", "normal", "late"],
+            weights=[10, 80, 10]
+        )[0]
+
+        self.bathroom_profile = random.choices(
+            ["quick", "normal", "long"],
+            weights=[15, 75, 10]
+        )[0]
+
+        self.preparation_profile = random.choices(
+            ["quick", "normal", "careful"],
+            weights=[15, 75, 10]
+        )[0]
+
+        self.walking_profile = random.choices(
+            ["fast", "normal", "slow"],
+            weights=[10, 80, 10]
+        )[0]
+
+        self.departure_profile = random.choices(
+            ["early", "normal", "late"],
+            weights=[10, 88, 2]
+        )[0]
+
+        # -------------------------
+        # STOCHASTIC ATTRIBUTES
+        # -------------------------
+        self.wake_up_offset = wake_up_time(self)
+        self.walking_speed = walking_speed(self)
+        self.leave_time_offset = morning_departure_offset(self)
+
         self.afternoon_departure_offset = afternoon_departure_offset()
-        self.leave_time_offset = morning_leave_offset()
-
-        # Arrival offsets
         self.afternoon_arrival_offset = dorm_return_offset()
         self.evening_arrival_offset = dorm_return_offset()
 
-        # Wake-up behavior
-        self.wake_up_offset = None
-        self.wake_up_time = None
-
-        # Walking speed
-        self.next_move_time = None
-        self.walking_speed = walking_speed()
-
-        # Morning decision
         self.morning_study = morning_study_decision()
 
-        # Morning bathroom sequence
+        # -------------------------
+        # MOVEMENT TIMING
+        # -------------------------
+        self.next_move_time = None
+
+        # -------------------------
+        # MORNING WAKE-UP
+        # -------------------------
+        self.wake_up_time = None
+
+        # -------------------------
+        # MORNING BATHROOM SEQUENCE
+        # -------------------------
         self.bathroom_entry_time = None
         self.bathroom_start_time = None
         self.bathroom_exit_time = None
@@ -55,7 +102,9 @@ class Agent:
         self.has_returned_from_bathroom = False
         self.return_dorm_time = None
 
-        # Morning preparation and departure sequence
+        # -------------------------
+        # MORNING PREPARATION AND DEPARTURE
+        # -------------------------
         self.preparation_start_time = None
         self.preparation_duration = None
         self.preparation_finish_time = None
@@ -65,10 +114,14 @@ class Agent:
         self.arrive_outside_time = None
         self.has_completed_morning_routine = False
 
-        # Afternoon activity choice
+        # -------------------------
+        # AFTERNOON ACTIVITY
+        # -------------------------
         self.afternoon_activity = None
 
-        # Dinner bathroom sequence
+        # -------------------------
+        # DINNER BATHROOM SEQUENCE
+        # -------------------------
         self.dinner_bathroom_entry_time = None
         self.dinner_bathroom_exit_time = None
         self.dinner_bathroom_start_time = None
@@ -77,43 +130,44 @@ class Agent:
         self.dinner_return_dorm_time = None
         self.has_returned_from_dinner_bathroom = False
 
-        # Dinner preparation sequence
+        # -------------------------
+        # DINNER PREPARATION
+        # -------------------------
         self.dinner_prep_start_time = None
         self.dinner_prep_duration = None
         self.dinner_prep_finish_time = None
 
-        # Dinner departure/arrival sequence
+        # -------------------------
+        # DINNER DEPARTURE / ARRIVAL
+        # -------------------------
         self.leave_for_dinner_time = None
         self.arrive_dinner_time = None
 
-        # Lights out sequence
+        # -------------------------
+        # EVENING / LIGHTS OUT
+        # -------------------------
         self.evening_activity = None
 
-    # ==========================================================
-    # SECTION 2 - AGENT MOVEMENT FUNCTIONS
-    # ==========================================================
+    # -------------------------
+    # AGENT MOVEMENT FUNCTIONS
+    # -------------------------
     def set_destination(self, destination):
-        # set destination by room_id
         self.destination_room = destination
         self.state = "moving"
 
     def move_to_destination(self, building=None):
-        # Attempt to move to the stored destination_room. If a Building
-        # object is available, callers can pass it and we'll resolve the
-        # Room object; otherwise keep behavior conservative.
         if self.destination_room is not None:
             if building is not None:
                 try:
                     self.current_room = building.rooms[self.destination_room]
                 except Exception:
                     pass
-            # clear destination and set idle
+
             self.destination_room = None
             self.state = "idle"
 
     def set_state(self, new_state):
         self.state = new_state
-
 
 # ==========================================================
 # SECTION 3 - AGENT CREATION
@@ -128,7 +182,7 @@ def create_students(num_students, room_list, students_per_room):
             agent_id=f"S{i+1:03d}", agent_type="student", current_room=assigned_room
         )
 
-        student.wake_up_offset = wake_up_time()
+        student.wake_up_offset = wake_up_time(student)
 
         students.append(student)
 

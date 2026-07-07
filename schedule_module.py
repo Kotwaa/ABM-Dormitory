@@ -18,7 +18,7 @@ def get_student_schedule():
     return [
         ScheduleBlock("00:00", "05:00", "sleep", "DORM_ROOM"),
         ScheduleBlock("05:00", "06:00", "wake_up", "DORM_ROOM"),
-        ScheduleBlock("05:00", "07:00", "bath", "Bathroom"),
+        ScheduleBlock("06:00", "07:00", "bath", "Bathroom"),
         ScheduleBlock("07:00", "08:00", "breakfast", "OUTSIDE"),
         ScheduleBlock("08:00", "12:00", "class", "OUTSIDE"),
         ScheduleBlock("12:00", "13:00", "lunch", "OUTSIDE"),

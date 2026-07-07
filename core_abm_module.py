@@ -329,8 +329,11 @@ def update_morning_behavior(student, building, current_time_minutes):
     actual_wake_up_time = (scheduled_wake_up_time + student.wake_up_offset)
     
     # 2. Record wake-up time once
-    if student.wake_up_time is None:
-        student.wake_up_time = actual_wake_up_time
+    if (
+        student.wake_up_time is None
+        and current_time_minutes >= actual_wake_up_time
+    ):
+        student.wake_up_time = current_time_minutes
         
     # 3. Before wake-up, keep student in assigned dorm room
     if current_time_minutes < actual_wake_up_time:
@@ -360,7 +363,7 @@ def update_morning_behavior(student, building, current_time_minutes):
                 student.bathroom_entry_time = current_time_minutes
                 student.bathroom_start_time = current_time_minutes
 
-                duration = bathroom_duration()
+                duration = bathroom_duration(student)
 
                 student.bathroom_exit_time = (
                     current_time_minutes
@@ -398,7 +401,7 @@ def update_morning_behavior(student, building, current_time_minutes):
     # 10. If student has returned to dorm, start preparation once
     if student.preparation_start_time is None:
         student.preparation_start_time = current_time_minutes
-        student.preparation_duration = preparation_duration()
+        student.preparation_duration = preparation_duration(student)
         student.preparation_finish_time = (
             student.preparation_start_time
             + student.preparation_duration
@@ -570,15 +573,19 @@ def handle_evening_behavior(student):
 #ALL OTHER BEHAVIOR        
 def handle_default_behavior(student, current_block):
 
-    # Dorm-based activities
     if current_block.destination_room in ["Dorm", "DORM_ROOM"]:
 
         student.destination_room = student.assigned_room.room_id
 
-    # All other scheduled activities
+    elif current_block.destination_room == "Bathroom":
+
+        # Do not use generic Bathroom as a movement destination.
+        # Stay where you are unless morning/dinner bathroom logic assigns B101/B201/B301.
+        student.destination_room = student.current_room.room_id
+
     else:
 
-        student.destination_room = current_block.destination_room        
+        student.destination_room = current_block.destination_room  
 
 # -------------------------
 # CORE SIMULATION ENGINE
@@ -601,17 +608,42 @@ def run_simulation(current_time, building, students, schedule, step_minutes):
             student.state = current_block.activity
 
             # --------------------------------------------------
-            # STEP 2: Morning behavior logic
+            # STEP 2: Student is already travelling
             # --------------------------------------------------
-            if not student.has_completed_morning_routine:
+            if student.is_travelling:
+                pass
+            
+            elif (
+                student.has_completed_morning_routine
+                and current_block.activity in ["wake_up", "bath", "breakfast"]
+            ):
+                student.destination_room = "OUTSIDE"
+                
+            elif (
+                student.current_room.room_id == "OUTSIDE"
+                and current_block.activity in ["wake_up", "bath", "breakfast"]
+            ):
+                student.destination_room = "OUTSIDE"
+                student.has_completed_morning_routine = True
+
+                if student.arrive_outside_time is None:
+                    student.arrive_outside_time = current_time_minutes
+            # --------------------------------------------------
+            # STEP 3: Morning behavior logic
+            # --------------------------------------------------
+            elif (
+                not student.has_completed_morning_routine
+                and current_block.activity in ["wake_up", "bath", "breakfast"]
+            ):
+
                 update_morning_behavior(
                     student,
                     building,
                     current_time_minutes
                 )
-            
+
             # --------------------------------------------------
-            # STEP 3: Class
+            # STEP 4: Class
             # --------------------------------------------------
             elif current_block.activity == "class":
 
@@ -621,22 +653,22 @@ def run_simulation(current_time, building, students, schedule, step_minutes):
                 )
 
             # --------------------------------------------------
-            # STEP 4: Lunch
+            # STEP 5: Lunch
             # --------------------------------------------------
             elif current_block.activity == "lunch":
 
                 handle_lunch_behavior(student)
-            
-            # -------------------------
-            # Afternoon free time
-            # -------------------------
+
+            # --------------------------------------------------
+            # STEP 6: Afternoon free time
+            # --------------------------------------------------
             elif current_block.activity == "afternoon_free_time":
 
                 handle_afternoon_behavior(student)
 
-            # -------------------------
-            # Dinner preparation
-            # -------------------------
+            # --------------------------------------------------
+            # STEP 7: Dinner preparation
+            # --------------------------------------------------
             elif current_block.activity == "dinner_prep":
 
                 handle_dinner_prep_behavior(
@@ -646,26 +678,26 @@ def run_simulation(current_time, building, students, schedule, step_minutes):
                     current_time_minutes
                 )
 
-            # -------------------------
-            # Dinner
-            # -------------------------
+            # --------------------------------------------------
+            # STEP 8: Dinner
+            # --------------------------------------------------
             elif current_block.activity == "dinner":
 
                 handle_dinner_behavior(
                     student,
                     current_time
                 )
-                    
-            # -------------------------
-            # Evening free time
-            # -------------------------
+
+            # --------------------------------------------------
+            # STEP 9: Evening free time
+            # --------------------------------------------------
             elif current_block.activity == "evening_free_time":
 
-                handle_evening_behavior(student)         
-                
-            # -------------------------
-            # Default scheduled behavior
-            # -------------------------
+                handle_evening_behavior(student)
+
+            # --------------------------------------------------
+            # STEP 10: Default scheduled behavior
+            # --------------------------------------------------
             else:
 
                 handle_default_behavior(
@@ -677,16 +709,34 @@ def run_simulation(current_time, building, students, schedule, step_minutes):
             # --------------------------------------------------
             # STEP 6: Assign a new path only if destination changes
             # --------------------------------------------------
-            if not student.path or student.path[-1] != student.destination_room:
+            if student.destination_room != student.current_destination:
+
+                student.current_destination = student.destination_room
 
                 path = find_path(
-                    building, student.current_room.room_id, student.destination_room
+                    building,
+                    student.current_room.room_id,
+                    student.destination_room
                 )
 
                 if path is None:
-                    path = [student.current_room.room_id]
+                    print(
+                        "NO PATH:",
+                        student.agent_id,
+                        student.current_room.room_id,
+                        "->",
+                        student.destination_room
+                    )
+                    student.path = [student.current_room.room_id]
+                    student.is_travelling = False
 
-                student.path = path
+                else:
+                    student.path = path
+                    student.is_travelling = (
+                        student.current_room.room_id != student.destination_room
+                    )
+                
+                
 
             # --------------------------------------------------
             # STEP 7: Move to the next room when travel time has elapsed
@@ -699,7 +749,8 @@ def run_simulation(current_time, building, students, schedule, step_minutes):
                 occupancy_counts[room_id] = (
                     occupancy_counts.get(room_id, 0) + 1
                 )
-            if student.current_room.room_id in student.path:
+
+            if student.path is not None and student.current_room.room_id in student.path:
 
                 current_index = student.path.index(student.current_room.room_id)
 
@@ -746,6 +797,10 @@ def run_simulation(current_time, building, students, schedule, step_minutes):
 
                         else:
                             student.state = "queued"
+
+            # Stop travelling once destination is reached
+            if student.current_room.room_id == student.destination_room:
+                student.is_travelling = False
                     
 
             # --------------------------------------------------
@@ -863,7 +918,7 @@ def export_occupancy_to_csv(occupancy_series, filename):
 if __name__ == "__main__":
 
     occupancy_series, students = run_occupancy_time_series(
-    start_time="05:00",
+    start_time="04:00",
     end_time="09:00",
     simulation_step=1,
     reporting_step=5

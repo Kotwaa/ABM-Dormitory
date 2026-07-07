@@ -5,41 +5,68 @@ import random
 def morning_study_decision():
     return random.random() < 0.30
 
-def bathroom_duration():
-    return round(random.triangular(5, 8, 15), 2)
+def bathroom_duration(student):
+
+    if student.bathroom_profile == "quick":
+        return round(random.triangular(3, 8, 5))
+
+    elif student.bathroom_profile == "long":
+        return round(random.triangular(12, 25, 18))
+
+    else:  # normal
+        return round(random.triangular(5, 15, 8))
 
 
-def walking_speed():
-    speed = random.normalvariate(0.5, 0.2)
+def walking_speed(student):
+
+    if student.walking_profile == "fast":
+        speed = random.normalvariate(0.85, 0.05)
+
+    elif student.walking_profile == "slow":
+        speed = random.normalvariate(0.45, 0.05)
+
+    else:  # normal
+        speed = random.normalvariate(0.70, 0.08)
+
     return round(max(speed, 0.5), 2)
 
 
-def wake_up_time():
-    """
-    Returns wake-up offset in minutes
-    relative to the scheduled wake-up time.
-    """
-    offset = random.normalvariate(-20, 20)
+def wake_up_time(student):
 
-    # limit wake-up variation to ±30 minutes
-    offset = max(min(offset, 30), -30)
+    if student.wake_up_profile == "early":
+        offset = random.normalvariate(-5, 4)
+
+    elif student.wake_up_profile == "late":
+        offset = random.normalvariate(20, 5)
+
+    else:  # normal
+        offset = random.normalvariate(10, 8)
+
+    offset = max(min(offset, 30), -10)
 
     return round(offset)
 
 
-def preparation_duration():
-    return round(random.triangular(5, 8, 12), 2)
+def preparation_duration(student):
+
+    if student.preparation_profile == "quick":
+        return round(random.triangular(3, 8, 5))
+
+    elif student.preparation_profile == "careful":
+        return round(random.triangular(12, 25, 18))
+
+    else:  # normal
+        return round(random.triangular(5, 15, 8))
 
 
-
-def morning_departure_offset():
-    return round(random.triangular(-10, 0, 20))
+def morning_departure_offset(student):
+    return round(random.triangular(-10, 15, 5))
 
 def afternoon_departure_offset():
-    return round(random.triangular(-5, 0, 15))
+    return round(random.triangular(-10, 15, 5))
 
 def dorm_return_offset():
-    return round(random.triangular(-5, 0, 10))
+    return round(random.triangular(-10, 15, 5))
 
 
 def morning_leave_offset():
