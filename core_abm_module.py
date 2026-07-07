@@ -13,7 +13,7 @@ from stochastic_module import walking_speed
 from stochastic_module import morning_study_decision
 from stochastic_module import choose_afternoon_activity
 from stochastic_module import choose_evening_activity
-from stochastic_module import morning_leave_offset
+from stochastic_module import morning_departure_offset
 
 # -------------------------
 # MOVEMENT HELPER FUNCTIONS
@@ -504,7 +504,7 @@ def handle_dinner_prep_behavior(
             if student.dinner_bathroom_entry_time is None:
                 student.dinner_bathroom_entry_time = current_time_minutes
 
-                duration = bathroom_duration()
+                duration = bathroom_duration(student)
 
                 student.dinner_bathroom_exit_time = (
                     current_time_minutes + duration
@@ -529,7 +529,7 @@ def handle_dinner_prep_behavior(
         if student.dinner_prep_start_time is None:
 
             student.dinner_prep_start_time = current_time_minutes
-            student.dinner_prep_duration = preparation_duration()
+            student.dinner_prep_duration = preparation_duration(student)
 
             student.dinner_prep_finish_time = (
                 student.dinner_prep_start_time
@@ -764,7 +764,11 @@ def run_simulation(current_time, building, students, schedule, step_minutes):
 
                     if current_time_minutes >= student.next_move_time:
 
-                        if can_enter_room(next_room_id, building, occupancy_counts):
+                        leaving_bathroom = (
+                            building.rooms[current_room_id].room_type == "bathroom"
+                        )
+
+                        if leaving_bathroom or can_enter_room(next_room_id, building, occupancy_counts):
 
                             occupancy_counts[current_room_id] = max(
                                 occupancy_counts.get(current_room_id, 0) - 1,
@@ -806,6 +810,7 @@ def run_simulation(current_time, building, students, schedule, step_minutes):
             # --------------------------------------------------
             # DEBUG: Trace one student
             # --------------------------------------------------
+            """
             if student.agent_id == "S031":
 
                 print(
@@ -818,7 +823,8 @@ def run_simulation(current_time, building, students, schedule, step_minutes):
                     round(student.next_move_time, 2) if student.next_move_time is not None else None,
                     "| path:",
                     " -> ".join(student.path) if student.path else None
-    )
+                )
+                """
             # --------------------------------------------------
             # STEP 8: Record current room after movement
             # --------------------------------------------------
@@ -919,9 +925,9 @@ if __name__ == "__main__":
 
     occupancy_series, students = run_occupancy_time_series(
     start_time="04:00",
-    end_time="09:00",
+    end_time="23:00",
     simulation_step=1,
-    reporting_step=5
+    reporting_step=30
 )
 
     # -------------------------

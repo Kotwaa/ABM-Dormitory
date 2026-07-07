@@ -60,22 +60,28 @@ def preparation_duration(student):
 
 
 def morning_departure_offset(student):
-    return round(random.triangular(-10, 15, 5))
 
-def afternoon_departure_offset():
-    return round(random.triangular(-10, 15, 5))
+    if student.departure_profile == "late":
+        return round(random.triangular(30, 60, 45))
 
-def dorm_return_offset():
-    return round(random.triangular(-10, 15, 5))
+    elif student.departure_profile == "early":
+        return round(random.triangular(-10, 5, 0))
 
-
-def morning_leave_offset():
-    return random.randint(0, 15)
+    else:
+        return round(random.triangular(0, 20, 8))
 
 
 #AFTERNOON ACTIVITIES
-def arrival_offset():
-    return random.randint(0, 20)
+def arrival_offset(student):
+
+    if student.arrival_profile == "early":
+        return random.randint(0, 5)
+
+    elif student.arrival_profile == "normal":
+        return random.randint(5, 15)
+
+    else:  # late
+        return random.randint(15, 20)
 
 def choose_afternoon_activity():
     choice = random.random()
@@ -89,8 +95,14 @@ def choose_afternoon_activity():
     else:
         return "recreation"
 
+def afternoon_departure_offset():
+    return round(random.triangular(-10, 15, 5))
+
 
 # EVENING ACTIVITIES     
+def dorm_return_offset():
+    return round(random.triangular(-10, 15, 5))
+
 def choose_evening_activity():
     choice = random.random()
 

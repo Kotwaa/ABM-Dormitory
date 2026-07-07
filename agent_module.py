@@ -3,13 +3,12 @@
 # This module defines 1. Agent class, 2. Agent movement functions, 3. Agent creation functions, and 4. Occupancy calculation functions.
 import random
 
-from stochastic_module import wake_up_time
+from stochastic_module import arrival_offset, wake_up_time
 from stochastic_module import walking_speed
 from stochastic_module import morning_departure_offset
 from stochastic_module import afternoon_departure_offset
 from stochastic_module import dorm_return_offset
 from stochastic_module import morning_study_decision
-from stochastic_module import morning_leave_offset
 from stochastic_module import bathroom_duration
 from stochastic_module import preparation_duration
 # ==========================================================
@@ -67,6 +66,11 @@ class Agent:
             ["early", "normal", "late"],
             weights=[10, 88, 2]
         )[0]
+        
+        self.arrival_profile = random.choices(
+            ["early", "normal", "late"],
+            weights=[15, 70, 15]
+        )[0]
 
         # -------------------------
         # STOCHASTIC ATTRIBUTES
@@ -117,6 +121,7 @@ class Agent:
         # -------------------------
         # AFTERNOON ACTIVITY
         # -------------------------
+        self.arrival_offset = arrival_offset(self)
         self.afternoon_activity = None
 
         # -------------------------
@@ -181,8 +186,6 @@ def create_students(num_students, room_list, students_per_room):
         student = Agent(
             agent_id=f"S{i+1:03d}", agent_type="student", current_room=assigned_room
         )
-
-        student.wake_up_offset = wake_up_time(student)
 
         students.append(student)
 
