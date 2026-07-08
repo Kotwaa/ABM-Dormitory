@@ -72,7 +72,7 @@ def morning_departure_offset(student):
 
 
 #AFTERNOON ACTIVITIES
-def arrival_offset(student):
+def afternoon_arrival_offset(student):
 
     if student.arrival_profile == "early":
         return random.randint(0, 5)
@@ -100,8 +100,16 @@ def afternoon_departure_offset():
 
 
 # EVENING ACTIVITIES     
-def dorm_return_offset():
-    return round(random.triangular(-10, 15, 5))
+def evening_arrival_offset(student):
+
+    if student.arrival_profile == "early":
+        return random.randint(0, 5)
+
+    elif student.arrival_profile == "normal":
+        return random.randint(5, 15)
+
+    else:  # late
+        return random.randint(15, 20)
 
 def choose_evening_activity():
     choice = random.random()

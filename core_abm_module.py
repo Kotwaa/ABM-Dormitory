@@ -6,6 +6,8 @@ from agent_module import create_students
 from schedule_module import get_student_schedule
 from movement_module import find_path, get_room_at_elapsed_time
 from queue_module import apply_queueing
+from stochastic_module import afternoon_arrival_offset 
+from stochastic_module import evening_arrival_offset
 from stochastic_module import wake_up_time
 from stochastic_module import bathroom_duration
 from stochastic_module import preparation_duration
@@ -459,7 +461,17 @@ def handle_lunch_behavior(student):
 
 
 #SIESTA BEHAVIOR
-def handle_afternoon_behavior(student):
+def handle_afternoon_behavior(student, current_time_minutes):
+
+    if student.afternoon_return_time is None:
+        student.afternoon_return_time = (
+            time_to_minutes("15:00")
+            + afternoon_arrival_offset(student)
+        )
+
+    if current_time_minutes < student.afternoon_return_time:
+        student.destination_room = "OUTSIDE"
+        return
 
     if student.afternoon_activity is None:
         student.afternoon_activity = choose_afternoon_activity()
@@ -556,7 +568,17 @@ def handle_dinner_behavior(student, current_time):
         student.leave_for_dinner_time = current_time
 
 #LIGHTS OUT BEHAVIOR       
-def handle_evening_behavior(student):
+def handle_evening_behavior(student, current_time_minutes):
+
+    if student.evening_return_time is None:
+        student.evening_return_time = (
+            time_to_minutes("18:00")
+            + evening_arrival_offset(student)
+        )
+
+    if current_time_minutes < student.evening_return_time:
+        student.destination_room = "OUTSIDE"
+        return
 
     if student.evening_activity is None:
         student.evening_activity = choose_evening_activity()
@@ -664,7 +686,7 @@ def run_simulation(current_time, building, students, schedule, step_minutes):
             # --------------------------------------------------
             elif current_block.activity == "afternoon_free_time":
 
-                handle_afternoon_behavior(student)
+                handle_afternoon_behavior(student, current_time_minutes)
 
             # --------------------------------------------------
             # STEP 7: Dinner preparation
@@ -685,7 +707,7 @@ def run_simulation(current_time, building, students, schedule, step_minutes):
 
                 handle_dinner_behavior(
                     student,
-                    current_time
+                    current_time_minutes
                 )
 
             # --------------------------------------------------
@@ -693,7 +715,7 @@ def run_simulation(current_time, building, students, schedule, step_minutes):
             # --------------------------------------------------
             elif current_block.activity == "evening_free_time":
 
-                handle_evening_behavior(student)
+                handle_evening_behavior(student, current_time_minutes)
 
             # --------------------------------------------------
             # STEP 10: Default scheduled behavior
